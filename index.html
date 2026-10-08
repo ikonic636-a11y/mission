@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>30초 결제 미션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* Layout: one phone-sized app centered on a quiet desk; presenter notes sit beside it (below on phones). */
+:root{
+  --page:#e9edf1; --ink:#1b2330; --muted:#5a6575; --line:#d3dae2; --card:#ffffff; --accent:#0d7a6b; --accent-ink:#ffffff;
+  --bad:#c8364b; --bad-bg:#fbe7ea; --ok:#13795b; --ok-bg:#e1f4ec; --na:#6b7480; --na-bg:#eceff2;
+  --f-body:"Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --f-game:"Jua", "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --page:#10141a; --ink:#e6eaef; --muted:#9ba5b3; --line:#2a323d; --card:#19202a; --accent:#36c0a9; --accent-ink:#06231e;
+  --bad:#ff7d8f; --bad-bg:#3a1c23; --ok:#5fd3a6; --ok-bg:#15302a; --na:#a0a9b5; --na-bg:#232a33; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --page:#10141a; --ink:#e6eaef; --muted:#9ba5b3; --line:#2a323d; --card:#19202a; --accent:#36c0a9; --accent-ink:#06231e;
+  --bad:#ff7d8f; --bad-bg:#3a1c23; --ok:#5fd3a6; --ok-bg:#15302a; --na:#a0a9b5; --na-bg:#232a33; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.stage{display:flex;justify-content:center;align-items:flex-start;gap:28px;padding-block:24px;padding-inline:16px;flex-wrap:wrap}
+.phone{position:relative;width:390px;max-width:100%;height:min(800px,calc(100vh - 48px));min-height:600px;
+  border-radius:34px;overflow:hidden;background:var(--card);box-shadow:0 0 0 10px #0d1117,0 24px 60px rgba(0,0,0,.25);display:flex;flex-direction:column}
+.screen{flex:1;overflow-y:auto;position:relative;min-height:0}
+
+/* mission bar */
+.mbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;font-size:13px;font-weight:700;z-index:5}
+.mbar.hard{background:#0b1226;color:#fff}
+.mbar.easy{background:#e8f4f1;color:#0b4a40}
+.mbar .t{font-variant-numeric:tabular-nums;font-size:18px;font-weight:900;min-width:52px;text-align:right}
+.mbar.hard .t.low{color:#ff4f6d;animation:pulse .5s ease-in-out infinite alternate}
+@keyframes pulse{to{opacity:.45}}
+
+/* intro + result (theme-aware) */
+.intro,.r{padding:28px 22px 32px;display:flex;flex-direction:column;gap:16px}
+.eyebrow{margin:0;font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.intro h1{margin:0;font-family:var(--f-game);font-weight:400;font-size:40px;line-height:1.15;text-wrap:balance}
+.mission{display:flex;gap:14px;align-items:flex-start;padding:16px;border:2px solid var(--accent);border-radius:16px}
+.mission .em{font-size:40px;line-height:1}
+.mission b{font-size:17px;display:block}
+.mission p{margin:4px 0 0;color:var(--muted)}
+.rules{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:4px}
+.btn-primary{border:0;border-radius:14px;padding:16px;background:var(--accent);color:var(--accent-ink);font-size:18px;font-weight:900}
+.btn-ghost{border:1.5px solid var(--line);border-radius:14px;padding:12px 16px;background:transparent;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px}
+.btn-ghost small{font-weight:400;color:var(--muted);font-size:12px}
+
+.r h2{margin:0;font-size:24px;line-height:1.3;text-wrap:balance}
+.money{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.money div{border:1px solid var(--line);border-radius:14px;padding:12px}
+.money span{display:block;font-size:12px;color:var(--muted)}
+.money b{font-size:22px;font-variant-numeric:tabular-nums}
+.money b.bad{color:var(--bad)}
+.checks{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.checks li:last-child{border-bottom:0}
+.pill{flex:none;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:2px}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.na{background:var(--na-bg);color:var(--na)}
+.checks b{display:block;font-size:14px}
+.checks small{color:var(--muted);font-size:12.5px;line-height:1.5;display:block}
+.sec{margin:6px 0 0;font-size:13px;font-weight:700;color:var(--muted)}
+.msg{background:var(--na-bg);border-radius:14px;padding:14px 16px;font-size:14px}
+.msg p{margin:0 0 6px}.msg p:last-child{margin:0}
+.msg .note{font-size:12px;color:var(--muted)}
+.cmp{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.cmp th,.cmp td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
+.cmp th:first-child,.cmp td:first-child{text-align:left;color:var(--muted);font-weight:500}
+.cmp thead th{font-size:12px;color:var(--muted)}
+
+/* ===== HARD game world (fixed palette on purpose) ===== */
+.gh{background:#14213d;color:#fff;min-height:100%;font-family:var(--f-game)}
+.gh-top{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#0f1930}
+.gh-logo{font-size:22px;color:#ffc93c}
+.gh-gem{background:#22325a;border-radius:999px;padding:4px 12px;font-size:14px}
+.gh-tabs{display:flex;gap:18px;padding:10px 16px;font-size:15px;color:#8c9bc4;overflow-x:auto}
+.gh-tabs b{color:#fff;border-bottom:3px solid #ffc93c;font-weight:400}
+.gh-hero{margin:4px 16px 12px;padding:12px;border-radius:12px;background:linear-gradient(90deg,#ff4f6d,#ff9b3c);text-align:center;font-size:17px}
+.gh-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 24px}
+.gh-card{position:relative;border:0;border-radius:14px;background:#22325a;padding:14px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;font-family:var(--f-game)}
+.gh-card .tag{position:absolute;top:6px;left:6px;background:#ff4f6d;font-size:11px;padding:1px 7px;border-radius:6px}
+.gh-card .em{font-size:38px}
+.gh-card .nm{font-size:13px;line-height:1.3;text-align:center}
+.gh-card .ds{font-size:9.5px;line-height:1.4;color:#8c9bc4;font-family:var(--f-body);text-align:left;margin:4px 0 2px}
+.gh-card .gp{font-size:18px;color:#ffc93c}
+.gh-card .wn{font-size:10px;color:#6f7fa8;font-family:var(--f-body)}
+.gh-banner{margin:0 16px 20px;padding:12px;border-radius:12px;border:1px dashed #3b4d7d;font-size:13px;color:#8c9bc4;text-align:center}
+
+.dim{position:absolute;inset:0;background:rgba(5,10,25,.72);display:flex;align-items:center;justify-content:center;padding:18px;z-index:20}
+.pop{position:relative;width:100%;border-radius:22px;background:linear-gradient(180deg,#fff4d6,#ffe1a8);color:#4a2a00;padding:28px 18px 18px;text-align:center;font-family:var(--f-game)}
+.pop .x{position:absolute;top:6px;right:8px;width:24px;height:24px;border:0;background:transparent;color:#efd9a8;font-size:16px;line-height:1}
+.pop .rib{display:inline-block;background:#ff4f6d;color:#fff;padding:3px 14px;border-radius:999px;font-size:14px}
+.pop .em{font-size:64px;line-height:1.2;margin-top:6px}
+.pop .tt{font-size:24px}
+.pop .off{font-size:15px;color:#9a6a1f}
+.pop .off b{color:#ff4f6d;font-size:22px;font-weight:400}
+.pop .pr{font-size:34px;color:#d6283f}
+.pop .cd{font-size:13px;color:#9a6a1f;font-family:var(--f-body)}
+.pop .cta{margin-top:12px;width:100%;border:0;border-radius:14px;padding:16px;font-size:22px;color:#fff;background:linear-gradient(180deg,#ff6a84,#e2304d);box-shadow:0 5px 0 #a51d33;font-family:var(--f-game);animation:bob 1s ease-in-out infinite alternate}
+@keyframes bob{to{transform:translateY(-3px)}}
+.pop .decline{margin-top:10px;border:0;background:transparent;color:#c4a678;font-size:11px;font-family:var(--f-body);text-decoration:underline}
+.pop .upc{font-size:40px;color:#d6283f;font-variant-numeric:tabular-nums}
+
+.ph{background:#f4f5f7;color:#222;min-height:100%;font-size:13px}
+.ph-top{display:flex;align-items:center;gap:6px;padding:12px 10px;background:#fff;font-weight:700;font-size:15px;border-bottom:1px solid #e5e7eb}
+.ph-back{border:0;background:transparent;font-size:24px;line-height:1;padding:0 8px;color:#444}
+.ph-box{background:#fff;margin:10px;border-radius:10px;padding:12px;display:grid;gap:10px}
+.ph-item{display:flex;gap:10px;align-items:center}
+.ph-item .em{font-size:30px}
+.ph-item b{display:block;font-size:14px}
+.ph-item small{color:#8a8f98;font-size:11px}
+.ph-row{display:flex;justify-content:space-between;gap:8px;color:#555}
+.ph-amt{font-weight:700;color:#111}
+.ph-chk{display:flex;gap:6px;align-items:flex-start;color:#333;font-size:12px}
+.ph-chk.tiny{font-size:10px;color:#a3a8b0;line-height:1.45}
+.ph-chk.all{font-size:14px;font-weight:700;color:#111;padding-bottom:8px;border-bottom:1px solid #eceef1}
+.ph-chk.all input{width:18px;height:18px}
+/* checked and unchecked boxes look almost the same on purpose */
+.ph-chk input{appearance:none;-webkit-appearance:none;position:relative;border:1px solid #cdd1d6;border-radius:3px;background:#eef0f2}
+.ph-chk input:checked{background:#e9ebee;border-color:#c6cad0}
+.ph-chk input:checked::after{content:"";position:absolute;left:34%;top:10%;width:28%;height:55%;border:solid #bfc4ca;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.ph-chk input{margin:1px 0 0;flex:none;width:14px;height:14px}
+.ph-terms{height:84px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;padding:8px;font-size:9.5px;color:#888;line-height:1.5}
+.ph-err{margin:0;color:#e11d48;font-size:11px}
+.ph-pay{margin:6px 10px 18px;width:calc(100% - 20px);border:0;border-radius:10px;padding:15px;background:#3d5afe;color:#fff;font-size:16px;font-weight:700}
+.ph-done{padding:60px 20px;text-align:center;font-family:var(--f-game);font-size:24px;color:#ffc93c}
+
+.n-hard{position:absolute;top:52px;left:8px;right:8px;z-index:30;border:0;text-align:left;background:rgba(245,245,247,.97);color:#111;border-radius:16px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.35);font-size:13px;line-height:1.4;animation:drop .35s ease-out}
+.n-hard .app{display:block;font-size:11px;color:#777;margin-bottom:2px}
+@keyframes drop{from{transform:translateY(-120%)}}
+
+/* ===== EASY world (fixed calm palette, high contrast) ===== */
+.ez{background:#ffffff;color:#111;min-height:100%;font-size:18px;line-height:1.6;padding:18px 18px 28px;display:flex;flex-direction:column;gap:14px}
+.ez h2{margin:0;font-size:26px}
+.ez .lead{margin:0;color:#3b4350}
+.ez-row{display:flex;align-items:center;gap:14px;width:100%;border:2px solid #cfd6de;border-radius:16px;background:#fff;padding:14px;text-align:left;color:#111}
+.ez-row .em{font-size:36px;flex:none}
+.ez-row .nm{flex:1;font-weight:700}
+.ez-row .wn{font-weight:900;font-size:20px;white-space:nowrap}
+.ez-row.big .wn{color:#b42318}
+.ez-back{align-self:flex-start;border:0;background:transparent;font-size:17px;color:#0b5c50;padding:0;font-weight:700}
+.ez-card{border:2px solid #cfd6de;border-radius:16px;padding:14px 16px}
+.ez-card .lb{font-size:15px;color:#4a5361}
+.ez-card .bg{font-size:26px;font-weight:900}
+.ez-card .bg.won{color:#0b5c50}
+.ez-alert{background:#fff4e5;border:2px solid #f0a020;border-radius:16px;padding:12px 16px;font-weight:700}
+.ez-opt{display:flex;gap:12px;align-items:flex-start;border:2px dashed #9aa5b1;border-radius:16px;padding:14px 16px;font-size:17px}
+.ez-opt input{width:26px;height:26px;flex:none;margin-top:2px}
+.ez-info{font-size:16px;color:#3b4350}
+.ez-pay{border:0;border-radius:16px;padding:18px;background:#0b6b5d;color:#fff;font-size:22px;font-weight:900}
+.ez-ask{border:2px solid #0b6b5d;border-radius:16px;padding:14px;background:#fff;color:#0b6b5d;font-size:18px;font-weight:700}
+.ez-askmsg{margin:0;background:#e8f4f1;border-radius:12px;padding:12px 14px;font-size:16px}
+.n-easy{position:absolute;top:52px;left:8px;right:8px;z-index:30;background:#fff;color:#111;border:3px solid #d92d20;border-radius:16px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:16px;animation:drop .35s ease-out;display:grid;gap:8px}
+.n-easy .w{font-weight:900;color:#b42318;font-size:18px}
+.n-easy .sms{font-size:13px;color:#666;background:#f3f4f6;border-radius:8px;padding:8px;text-decoration:line-through}
+.n-easy .acts{display:flex;gap:8px}
+.n-easy .acts button{flex:1;border-radius:12px;padding:10px;font-size:16px;font-weight:700}
+.n-easy .close{border:0;background:#0b6b5d;color:#fff}
+.n-easy .open{border:1.5px solid #c3c9d1;background:#fff;color:#666}
+
+/* mission flash (working memory) */
+.flash{position:absolute;inset:0;z-index:50;background:#0b1226;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;font-family:var(--f-game)}
+.flash .k{font-size:16px;color:#8c9bc4}
+.flash .m{font-size:30px;line-height:1.3;text-wrap:balance}
+.flash .n{font-size:64px;color:#ffc93c;font-variant-numeric:tabular-nums}
+.gh-rate{margin:0 16px 10px;font-size:11px;color:#6f7fa8;font-family:var(--f-body);text-align:right}
+
+/* friend chat (social judgement) */
+.n-kakao{position:absolute;top:52px;left:8px;right:8px;z-index:30;border:0;text-align:left;background:#fee500;color:#191919;border-radius:16px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.35);font-size:14px;line-height:1.4;animation:drop .35s ease-out}
+.n-kakao .app{display:block;font-size:11px;color:#5a5000;margin-bottom:2px}
+.chat{position:absolute;left:0;right:0;bottom:0;z-index:32;background:#b2c7d9;border-radius:22px 22px 0 0;padding:14px 14px 18px;display:flex;flex-direction:column;gap:8px;box-shadow:0 -10px 30px rgba(0,0,0,.3);animation:rise .3s ease-out;color:#191919}
+@keyframes rise{from{transform:translateY(100%)}}
+.chat .who{font-weight:700;font-size:14px}
+.chat .bub{align-self:flex-start;max-width:85%;background:#fff;border-radius:4px 14px 14px 14px;padding:8px 12px;font-size:14px}
+.chat .sms{align-self:stretch;background:#f2f3f5;border-radius:10px;padding:8px 10px;font-size:12px;color:#444}
+.chat .send{border:0;border-radius:12px;padding:13px;background:#fee500;color:#191919;font-size:16px;font-weight:700}
+.chat .later{border:0;background:transparent;color:#4a5a6a;font-size:12px}
+
+/* trait cards + word reveal on result */
+.words{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin:6px 0 0}
+.words span{font-size:12.5px;background:var(--na-bg);border-radius:8px;padding:5px 8px}
+.words i{font-style:normal;color:var(--bad);font-weight:700}
+.quote{border-left:3px solid var(--accent);padding:2px 0 2px 12px;font-size:14px}
+
+.toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);z-index:40;background:rgba(10,14,24,.92);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;white-space:nowrap}
+
+/* presenter panel */
+.side{width:340px;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:4px 18px}
+.side summary{cursor:pointer;padding:12px 0;font-weight:700}
+.side ol{margin:0 0 12px;padding-left:20px;display:grid;gap:6px;font-size:14px}
+.side ol small{color:var(--muted)}
+.side label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+.qrrow{display:flex;gap:8px}
+.qrrow input{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--page);color:var(--ink);font:inherit;font-size:13px}
+.qrrow button{border:0;border-radius:10px;padding:9px 14px;background:var(--accent);color:var(--accent-ink);font-weight:700}
+#qr{display:grid;gap:14px;margin:14px 0 18px}
+#qr figure{margin:0;background:#fff;color:#111;padding:14px;border-radius:12px;display:grid;justify-items:center;gap:8px}
+#qr figcaption{font-weight:900;font-size:16px}
+#qr code{font-size:11px;color:#555;word-break:break-all;text-align:center}
+#qr img,#qr canvas{max-width:100%}
+
+@media (max-width:520px){
+  .stage{padding-block:0;padding-inline:0;gap:16px}
+  .phone{width:100%;height:100vh;height:100svh;min-height:0;border-radius:0;box-shadow:none}
+  .side{margin:0 16px 24px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+<style>html,body{margin:0;height:100%}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<div class="stage">
+  <div class="phone" id="phone">
+    <div class="mbar" id="bar" hidden></div>
+    <div class="screen" id="screen"></div>
+    <div id="layer"></div>
+    <div id="notif"></div>
+    <div id="flash"></div>
+    <div id="toast"></div>
+  </div>
+
+  <details class="side" id="side">
+    <summary>발표자용 안내 · QR 만들기</summary>
+    <ol>
+      <li>공유 링크를 아래에 붙여 넣으면 1차·2차 QR이 따로 만들어져요.</li>
+      <li>도입: <b>1차 QR</b>로 접속해 시작합니다. <small>(미션은 3초만 보이고, 그다음 30초 체험)</small></li>
+      <li>결과 화면의 다섯 가지 특성(어휘, 작업기억, 돈 개념, 처리 속도, 사회적 판단)을 하나씩 짚어 주세요.</li>
+      <li>해결방안 파트: <b>2차 QR</b>로 쉬운 화면을 체험합니다. 같은 폰으로 1차를 했다면 비교표가 함께 나와요.</li>
+    </ol>
+    <label for="qr-url">공유 링크</label>
+    <div class="qrrow">
+      <input id="qr-url" type="url" placeholder="https://claude.ai/…">
+      <button type="button" data-act="qr">QR 만들기</button>
+    </div>
+    <div id="qr"></div>
+  </details>
+</div>
+
+<script>
+/* gem prices use an awkward rate on purpose (≈9.17원 per 💎) */
+/* name = short label (easy screen, results); long + desc = hard shop */
+const ITEMS = {
+  legend:{name:'전설 소환 10연차', em:'🐉', gem:3600, won:33000, tag:'BEST',
+    long:'[기간 한정] 전설 소환 10연차 + SSR 등급 확정권 스페셜 패키지',
+    desc:'10회 소환 중 SSR 이상 1회 확정 · 중복 시 💎 환급 · 구매 후 7일간 매일 접속 보상 · 확률 정보는 상세 페이지 참고'},
+  grow:{name:'새싹 성장팩', em:'🌿', gem:360, won:3300, tag:'첫 구매',
+    long:'[첫 구매 한정] 새싹 성장팩 · 초보 농부 응원 세트',
+    desc:'씨앗 10개 + 비료 3개 + 성장 경험치 2배(3일) · 계정당 1회 · 이미 체험팩을 산 계정은 자동 업그레이드'},
+  pass:{name:'월간 성장 패스', em:'📜', gem:1080, won:9900, tag:'인기',
+    long:'월간 성장 패스 시즌 12: 봄의 정원 (프리미엄 트랙 포함)',
+    desc:'30일간 매일 💎30 지급 · 시즌 한정 꾸미기 아이템 · 매월 자동 갱신되며 해지 전까지 유지'},
+  sprout3:{name:'새싹 체험팩 ×3', em:'🌱', gem:316, won:2900, tag:'묶음 이득',
+    long:'[묶음 이득] 새싹 체험팩 ×3 + 보너스 씨앗 주머니',
+    desc:'체험팩 3개를 한 번에! 개별 구매보다 💎44 이득 · 보너스 씨앗 5개 추가 · 묶음 상품은 청약철회 제한'},
+  gold:{name:'골드 상자', em:'🧰', gem:600, won:5500,
+    long:'골드 상자 프리미엄 (랜덤 보상 · 최대 💎3,000 당첨)',
+    desc:'상자 1개당 보상 1개 무작위 지급 · 등급별 확률 공개 · 개봉 후 청약철회 제한'},
+  /* popup-only deal: 💎1,100 looks like the 1,100원 mission */
+  legendPop:{name:'전설 소환 패키지(팝업)', em:'🐉', gem:1100, won:10100,
+    long:'[오늘만 87% 할인] 전설 소환 패키지', desc:''},
+  sprout:{name:'새싹 체험팩', em:'🌱', gem:120, won:1100, tag:'첫 구매',
+    long:'[첫 구매 한정] 새싹 체험팩 · 신규·복귀 농부 환영 세트',
+    desc:'씨앗 5개 + 물뿌리개 1개 · 계정당 1회 · 복귀 유저는 출석 7일 이후 구매 가능 · 일부 서버 제외'}
+};
+const ORDER = ['legend','grow','pass','sprout3','gold','sprout'];
+const LIMIT = 30, FLASH = 3, UPSELL = 5;
+
+/* unfamiliar words stand in for key terms (vocabulary / reading load) */
+const MASK = { '정기결제':'베스닝', '간편결제':'드레핀', '청약철회':'칸토', '멤버십':'오르빈', '비밀번호':'무라스',
+  '매월':'테스마다', '해지':'세브', '생략':'파켄', '자동':'로미', '인증':'펠트', '제한':'벨므', '알려주지':'주레하지', '갱신':'코르딩' };
+const MASK_KEYS = Object.keys(MASK).sort((a,b) => b.length - a.length);
+const mask = s => MASK_KEYS.reduce((t,k) => t.split(k).join(MASK[k]), s);
+
+const $ = id => document.getElementById(id);
+const won = n => n.toLocaleString('ko-KR') + '원';
+const S = { phase:'intro', run:null, results:{}, lastMode:null };
+let tick = null, notifT = null, notifHide = null, upT = null, toastT = null, flashT = null;
+
+function newRun(mode){
+  return { mode, screen:'shop', item:null, paid:0, sub:false, oneclick:false,
+    friendOpened:false, friendSent:false, popup: mode === 'hard', popTaken:false,
+    sawUpsell:false, upgraded:false, left:LIMIT, timedOut:false, reachedPay:false };
+}
+
+/* ---------- screens ---------- */
+/* each QR opens one version: plain link = 1차(hard), link#easy = 2차(easy) */
+const pageMode = () => location.hash === '#easy' ? 'easy' : 'hard';
+
+function introHTML(){
+  const easy = pageMode() === 'easy';
+  const mission = easy
+    ? `<b>게임 상점에서 🌱 새싹 체험팩 1개만 사세요.</b><p>가격은 1,100원이에요. 미션은 화면 위에 계속 보여요.</p>`
+    : `<b>게임 상점에서 미션대로 물건을 사세요.</b><p>미션은 시작할 때 <b>3초 동안만</b> 보여요. 잘 기억하세요.</p>`;
+  return `<div class="intro">
+    <p class="eyebrow">디지털 접근성 체험 · ${easy ? '2차 · 쉬운 화면' : '1차'}</p>
+    <h1>30초 결제 미션</h1>
+    <div class="mission"><span class="em">${easy ? '🌱' : '🎮'}</span><div>${mission}</div></div>
+    <ul class="rules">
+      <li>제한 시간은 30초예요.</li>
+      <li>진짜 결제가 아니에요. 돈은 나가지 않아요.</li>
+      <li>결과는 내 화면에만 나와요.</li>
+    </ul>
+    <button class="btn-primary" data-act="start" data-mode="${pageMode()}">시작하기</button>
+  </div>`;
+}
+
+function hardShop(){
+  const cards = ORDER.map(id => { const it = ITEMS[id];
+    return `<button class="gh-card" data-act="pick" data-id="${id}">
+      ${it.tag ? `<span class="tag">${it.tag}</span>` : ''}
+      <span class="em">${it.em}</span><span class="nm">${it.long}</span>
+      <span class="ds">${mask(it.desc)}</span>
+      <span class="gp">💎${it.gem.toLocaleString()}</span></button>`; }).join('');
+  return `<div class="gh">
+    <div class="gh-top"><span class="gh-logo">몽글팜</span><span class="gh-gem">💎 0</span></div>
+    <div class="gh-tabs"><b>추천</b><span>다이아</span><span>패키지</span><span>이벤트</span><span>VIP</span></div>
+    <div class="gh-hero">⚡ 첫 구매 보너스 다이아 +50% ⚡</div>
+    <p class="gh-rate">💎1 ≈ 9.17원 · 💎는 묶음 단위로 충전돼요</p>
+    <div class="gh-grid">${cards}</div>
+  </div>`;
+}
+function hardPopup(){
+  return `<div class="dim"><div class="pop">
+    <button class="x" data-act="closePop" aria-label="닫기">✕</button>
+    <span class="rib">오늘만! 단 1회</span>
+    <div class="em">🐉✨</div>
+    <div class="tt">전설 소환 패키지</div>
+    <div class="off"><s>💎8,460</s> <b>87%</b></div>
+    <div class="pr">💎1,100</div>
+    <div class="cd">이벤트 종료까지 03:59:12</div>
+    <button class="cta" data-act="popTake">지금 받기</button>
+  </div></div>`;
+}
+const TERMS = `제1조(목적) 이 약관은 몽글게임즈(이하 "회사")가 제공하는 유료 디지털 콘텐츠의 구매 및 이용에 관한 사항을 규정합니다.
+제7조(청약철회 등) ① 구매 즉시 사용되거나 적용되는 상품은 「전자상거래 등에서의 소비자보호에 관한 법률」 제17조 제2항 제5호에 따라 청약철회가 제한됩니다. ② 멤버십은 무료 이용기간 종료일 다음 날 등록된 결제수단으로 매월 자동 갱신되며, 해지 신청은 다음 결제일 24시간 전까지 하여야 합니다. ③ 휴대폰 소액결제 이용 시 통신사 정책에 따라 결제 당월 외 취소가 제한될 수 있습니다.
+제9조(간편결제) 간편결제 등록 시 회원은 이후 결제에서 비밀번호 인증 절차가 생략되는 것에 동의한 것으로 봅니다.`;
+function hardPay(){
+  const it = ITEMS[S.run.item];
+  return `<div class="ph">
+    <div class="ph-top"><button class="ph-back" data-act="back" aria-label="뒤로">‹</button>결제</div>
+    <div class="ph-box">
+      <div class="ph-item"><span class="em">${it.em}</span><div><b>${it.long}</b><small>💎${it.gem.toLocaleString()} 충전 후 ${mask('자동')} 구매</small></div></div>
+      <div class="ph-row"><span>결제수단</span><span>휴대폰 소액결제 ▾</span></div>
+      <div class="ph-row"><span>충전</span><span class="ph-amt">💎${it.gem.toLocaleString()}</span></div>
+      <div class="ph-row"><span>결제금액</span><span style="color:#9aa0a8;font-size:11px">₩${it.won.toLocaleString()} (VAT 포함)</span></div>
+    </div>
+    <div class="ph-box">
+      <label class="ph-chk all"><input type="checkbox" id="c-all"> 약관 전체 동의하기</label>
+      <label class="ph-chk tiny"><input type="checkbox" id="c-r1"> (필수) 유료 콘텐츠 이용약관 동의</label>
+      <label class="ph-chk tiny"><input type="checkbox" id="c-sub" checked> ${mask('(선택) 멤버십 가입 · 첫 달 0원, 이후 매월 ₩9,900 정기결제 · 마이페이지에서 해지 가능')}</label>
+      <label class="ph-chk tiny"><input type="checkbox" id="c-req"> (필수) 상품 정보 확인 및 결제 진행 동의</label>
+      <label class="ph-chk tiny"><input type="checkbox" id="c-one" checked> ${mask('(선택) 간편결제 등록: 다음 결제부터 비밀번호 입력 생략')}</label>
+      <label class="ph-chk tiny"><input type="checkbox" id="c-r2"> ${mask('(필수) 디지털 콘텐츠 청약철회 제한 사항 확인')}</label>
+      <div class="ph-terms">${mask(TERMS).replace(/\n/g,'<br>')}</div>
+      <p class="ph-err" id="ph-err" hidden>필수 항목에 동의해 주세요.</p>
+    </div>
+    <button class="ph-pay" data-act="pay">동의하고 결제하기</button>
+  </div>`;
+}
+function hardUpsell(){
+  return `<div class="dim"><div class="pop">
+    <span class="rib">잠깐! 지금만</span>
+    <div class="upc" id="upc">00:0${UPSELL}</div>
+    <div class="tt">보상 3배 업그레이드</div>
+    <div class="off">💎240만 더 충전하면 방금 산 상품 보상이 3배!</div>
+    <button class="cta" data-act="upgrade">업그레이드</button>
+    <button class="decline" data-act="decline">아니요, 3배 혜택을 포기할게요</button>
+  </div></div>`;
+}
+
+function easyShop(){
+  const rows = ORDER.map(id => { const it = ITEMS[id];
+    return `<button class="ez-row${it.won >= 10000 ? ' big' : ''}" data-act="pick" data-id="${id}">
+      <span class="em">${it.em}</span><span class="nm">${it.name}</span><span class="wn">${won(it.won)}</span></button>`; }).join('');
+  return `<div class="ez"><h2>상점</h2><p class="lead">사고 싶은 것을 눌러요.</p>${rows}</div>`;
+}
+function easyPay(){
+  const it = ITEMS[S.run.item];
+  return `<div class="ez">
+    <button class="ez-back" data-act="back">← 다른 것 고르기</button>
+    <h2>확인해 주세요</h2>
+    <div class="ez-card"><div class="lb">살 것</div><div class="bg">${it.em} ${it.name}</div></div>
+    <div class="ez-card"><div class="lb">낼 돈</div><div class="bg won">${won(it.won)}</div><div class="lb">한 번만 내요.</div></div>
+    ${it.won >= 10000 ? `<div class="ez-alert">⚠ 큰돈이에요. 정말 필요한지 한 번 더 생각해요.</div>` : ''}
+    ${S.run.item !== 'sprout' ? `<div class="ez-alert">미션은 <b>🌱 새싹 체험팩 1개</b>예요. 이게 맞나요?</div>` : ''}
+    <label class="ez-opt"><input type="checkbox" id="c-sub"><span><b>멤버십도 할까요?</b><br>체크하면 <b>다음 달부터 매달 9,900원</b>이 나가요.</span></label>
+    <div class="ez-info">🔒 돈을 낼 때마다 비밀번호를 물어봐요.</div>
+    <button class="ez-pay" data-act="pay">${won(it.won)} 내기</button>
+    <button class="ez-ask" data-act="ask">보호자에게 물어보기</button>
+    <p class="ez-askmsg" id="askmsg" hidden>보호자에게 물어봤어요. (체험이라 실제로는 보내지 않아요)</p>
+  </div>`;
+}
+
+/* ---------- friend message (social judgement) ---------- */
+function showFriend(){
+  if (S.phase !== 'play') return;
+  const n = $('notif');
+  if (S.run.mode === 'hard') {
+    n.innerHTML = `<button class="n-kakao" data-act="friendOpen"><span class="app">카카오톡 · 지금</span><b>민지</b><br>야 부탁 하나만 들어줄 수 있어?? ㅠㅠ</button>`;
+    notifHide = setTimeout(() => { if (!S.run.friendOpened) n.innerHTML = ''; }, 9000);
+  } else {
+    n.innerHTML = `<div class="n-easy"><span class="w">⚠ 조심하세요</span>
+      <span>인증번호를 달라는 말은 사기일 수 있어요. 친구라도 알려주지 마세요.</span>
+      <span class="sms">민지: 문자로 온 인증번호 6자리만 알려줘 ㅎㅎ</span>
+      <div class="acts"><button class="close" data-act="notifClose">닫기</button><button class="open" data-act="friendSend">그래도 알려주기</button></div></div>`;
+  }
+}
+function friendChat(){
+  return `<div class="dim" style="align-items:flex-end;padding:0"><div class="chat">
+    <span class="who">민지</span>
+    <div class="bub">야 부탁 하나만 들어줄 수 있어?? ㅠㅠ</div>
+    <div class="bub">내 폰이 지금 안 돼서 그런데 게임 아이템 하나만 대신 사줘. 금방 갚을게!!</div>
+    <div class="bub">너 폰으로 문자 하나 갈 거야. 거기 숫자 6개만 보내주면 돼 ㅎㅎ</div>
+    <div class="sms">📩 [몽글페이] ${mask('인증')}번호 [482913] 타인에게 절대 ${mask('알려주지')} 마세요.</div>
+    <button class="send" data-act="friendSend">482913 보내기</button>
+    <button class="later" data-act="notifClose">나중에 답장하기</button>
+  </div></div>`;
+}
+
+/* ---------- result ---------- */
+const lab = { bad:'걸렸어요', ok:'피했어요', na:'못 봤어요' };
+const st = (cond, seen = true) => !seen ? 'na' : (cond ? 'bad' : 'ok');
+const row = (s, t, d, extra = '', label) => `<li><span class="pill ${s}">${label || lab[s]}</span><div><b>${t}</b><small>${d}</small>${extra}</div></li>`;
+
+function resultHTML(){
+  const mode = S.lastMode, r = S.results[mode], hard = mode === 'hard';
+  const wrongItem = !!r.item && r.item !== 'sprout';
+  const right = r.item === 'sprout' && !r.upgraded && r.paid === 1100;
+  const clean = right && !r.sub && !r.oneclick && !r.friendSent;
+  let head;
+  if (!r.paid) head = '시간 안에 결제를 끝내지 못했어요';
+  else if (clean) head = '미션 성공! 1,100원만 썼어요';
+  else if (right) head = '물건은 맞게 샀지만, 놓친 게 있어요';
+  else head = `1,100원만 쓰려고 했는데 ${won(r.paid)}을 썼어요`;
+
+  const money = `<div class="money">
+    <div><span>오늘 나간 돈</span><b class="${r.paid > 1100 ? 'bad' : ''}">${won(r.paid)}</b></div>
+    <div><span>다음 달부터 매달</span><b class="${r.sub ? 'bad' : ''}">${won(r.sub ? 9900 : 0)}</b></div>
+  </div>`;
+
+  let body;
+  if (hard) {
+    const words = `<div class="words">${Object.entries(MASK).map(([k,v]) => `<span><i>${v}</i> = ${k}</span>`).join('')}</div>`;
+    const traits = [
+      row(st(r.sub || r.oneclick, r.reachedPay), '① 어휘·독해: 읽히는데 뜻을 모르는 글',
+        '결제 화면과 약관의 핵심 단어를 처음 보는 단어로 바꿨어요. "테스마다 ₩9,900 베스닝"이 매달 돈이 나간다는 뜻인 걸 알았나요? (필수)와 (선택)도 같은 색, 같은 크기로 섞여 있었고, "전체 동의"를 누르면 선택 항목까지 함께 체크됐어요.', words),
+      row(st(wrongItem, !!r.item), '② 작업기억: 다시 볼 수 없는 미션',
+        `미션은 3초만 보였어요. 비슷한 이름(새싹 성장팩, 새싹 체험팩 ×3)과 팝업이 기억을 흐렸어요.${r.item ? ` 내가 고른 것: ${ITEMS[r.item].name}` : ''}`),
+      row(st(r.paid > 1100, r.paid > 0), '③ 추상적인 돈: 💎로만 적힌 가격',
+        '💎120이 1,100원이었고, 팝업의 💎1,100은 1,100원이 아니라 10,100원이었어요. 숫자는 보이는데 얼마나 큰돈인지 감이 오지 않아요.'),
+      row(st(r.upgraded, r.sawUpsell), '④ 처리 속도: 생각할 시간이 없는 결정',
+        `결제가 끝나자마자 ${UPSELL}초 안에 추가 구매를 정해야 했어요. 거절 버튼은 작고 "혜택을 포기할게요"라고 적혀 있었어요.`),
+      row(r.friendSent ? 'bad' : 'ok', '⑤ 사회적 판단: 친구의 부탁',
+        '"친구"가 인증번호를 달라고 했어요. 문자에 적힌 경고("주레하지 마세요" = 알려주지 마세요)도 모르는 단어였어요. 실제 피해 사례 중에는 아는 사람에게서 시작된 경우가 많아요.',
+        '', r.friendSent ? '알려줬어요' : (r.friendOpened ? '안 알려줬어요' : '안 열었어요'))
+    ].join('');
+    body = `<p class="sec">방금 여러분이 겪은 것</p><ul class="checks">${traits}</ul>
+      <div class="msg">
+        <p>방금 여러분은 단어 일부를 모르고, 미션을 다시 볼 수 없고, 돈의 크기를 가늠하기 어려운 상태에서 30초 안에 결정했어요.</p>
+        <p>일부 지적장애인에게는 매일 쓰는 앱과 게임 화면이 이런 모습일 수 있어요. 놓친 게 있어도 여러분 탓이 아니에요. 화면이 그렇게 설계돼 있었어요.</p>
+        <p class="note">이 체험은 지적장애의 특성 중 일부를 비슷하게 느껴보는 것이에요. 실제 경험을 똑같이 재현할 수는 없어요.</p>
+      </div>`;
+  } else {
+    const changes = [
+      row(st(r.sub, r.reachedPay), '① 쉬운 말', '모르는 단어 없이 "다음 달부터 매달 9,900원이 나가요"처럼 적었어요.'),
+      row(st(wrongItem, !!r.item), '② 미션이 계속 보여요', '화면 위에 미션이 항상 떠 있고, 다른 상품을 고르면 "이게 맞나요?"라고 물어봐요.'),
+      row(st(r.paid > 1100, r.paid > 0), '③ 원 단위 가격', '진짜 돈이 얼마인지 바로 보여요. 큰돈이면 한 번 더 알려줘요.'),
+      row('ok', '④ 서두르지 않아도 돼요', '카운트다운 추가 구매 팝업이 없어요. 결제할 때마다 비밀번호로 한 번 멈춰요.', '', '없었어요'),
+      row(r.friendSent ? 'bad' : 'ok', '⑤ 위험한 부탁 경고', '인증번호를 달라는 메시지가 오면 화면이 먼저 알려줘요.', '', r.friendSent ? '알려줬어요' : '안 알려줬어요')
+    ].join('');
+    body = `<p class="sec">쉬운 화면이 바꾼 점</p><ul class="checks">${changes}</ul>
+      <div class="msg"><p>같은 상품, 같은 30초였어요. 사람은 그대로인데 화면만 바꿨더니 실수가 줄었어요.</p>
+      <p>문제는 사람이 아니라 화면 설계에 있었어요.</p></div>`;
+  }
+
+  let cmp = '';
+  const a = S.results.hard, b = S.results.easy;
+  if (a && b) {
+    const yn = v => v ? '예' : '아니요';
+    cmp = `<p class="sec">1차와 2차 비교</p><div style="overflow-x:auto"><table class="cmp">
+      <thead><tr><th></th><th>1차 · 보통 화면</th><th>2차 · 쉬운 화면</th></tr></thead><tbody>
+      <tr><td>맞는 상품</td><td>${yn(a.item === 'sprout')}</td><td>${yn(b.item === 'sprout')}</td></tr>
+      <tr><td>오늘 나간 돈</td><td>${won(a.paid)}</td><td>${won(b.paid)}</td></tr>
+      <tr><td>매달 나갈 돈</td><td>${won(a.sub ? 9900 : 0)}</td><td>${won(b.sub ? 9900 : 0)}</td></tr>
+      <tr><td>비밀번호 생략</td><td>${yn(a.oneclick)}</td><td>${yn(b.oneclick)}</td></tr>
+      <tr><td>인증번호 알려줌</td><td>${yn(a.friendSent)}</td><td>${yn(b.friendSent)}</td></tr>
+      <tr><td>걸린 시간</td><td>${LIMIT - a.left}초</td><td>${LIMIT - b.left}초</td></tr>
+      </tbody></table></div>`;
+  }
+
+  const next = hard
+    ? `<div class="msg"><p>2차 체험은 발표자가 보여주는 <b>두 번째 QR</b>로 들어가 주세요. 1차 결과와 비교해서 보여줘요.</p></div>`
+    : '';
+
+  return `<div class="r">
+    <p class="eyebrow">${hard ? '1차 · 보통 화면' : '2차 · 쉬운 화면'} · 내 결과</p>
+    <h2>${head}</h2>${money}${body}${cmp}${next}
+    <button class="btn-ghost" data-act="home">처음으로</button>
+  </div>`;
+}
+
+/* ---------- render ---------- */
+function render(){
+  const scr = $('screen'), layer = $('layer'), bar = $('bar');
+  layer.innerHTML = '';
+  if (S.phase === 'intro') { bar.hidden = true; scr.innerHTML = introHTML(); }
+  else if (S.phase === 'result') { bar.hidden = true; scr.innerHTML = resultHTML(); }
+  else {
+    const r = S.run, hard = r.mode === 'hard';
+    bar.hidden = false; bar.className = 'mbar ' + r.mode; updBar();
+    if (r.screen === 'shop') { scr.innerHTML = hard ? hardShop() : easyShop(); if (r.popup) layer.innerHTML = hardPopup(); }
+    else if (r.screen === 'pay') scr.innerHTML = hard ? hardPay() : easyPay();
+    else if (r.screen === 'upsell') { scr.innerHTML = `<div class="gh"><div class="ph-done">결제 완료 ✓</div></div>`; layer.innerHTML = hardUpsell(); }
+  }
+  scr.scrollTop = 0;
+}
+function updBar(){
+  const r = S.run;
+  const label = r.mode === 'hard' ? '미션: 무엇을 사야 했는지 기억나나요?' : '미션: 🌱 새싹 체험팩 1개만 사기 (1,100원)';
+  $('bar').innerHTML = `<span>${label}</span><span class="t${r.left <= 10 ? ' low' : ''}">0:${String(r.left).padStart(2,'0')}</span>`;
+}
+function toast(t, ms = 1400){
+  clearTimeout(toastT); $('toast').innerHTML = `<div class="toast">${t}</div>`;
+  toastT = setTimeout(() => $('toast').innerHTML = '', ms);
+}
+function clearTimers(){
+  [tick, upT, flashT].forEach(clearInterval); [notifT, notifHide].forEach(clearTimeout);
+  $('notif').innerHTML = ''; $('flash').innerHTML = '';
+}
+
+function start(mode){
+  clearTimers();
+  S.run = newRun(mode); S.phase = 'play';
+  if (mode === 'hard') {
+    let s = FLASH;
+    const draw = () => $('flash').innerHTML = `<div class="flash"><span class="k">미션을 기억하세요</span>
+      <span class="m">🌱 새싹 체험팩<br>1개만 사세요 (1,100원)</span><span class="n">${s}</span></div>`;
+    render(); draw();
+    flashT = setInterval(() => { s--; if (s > 0) draw(); else { clearInterval(flashT); $('flash').innerHTML = ''; go(); } }, 1000);
+  } else { render(); go(); }
+}
+function go(){
+  tick = setInterval(() => { S.run.left--; updBar(); if (S.run.left <= 0) finish(true); }, 1000);
+  notifT = setTimeout(showFriend, 7000);
+}
+function finish(timedOut){
+  if (S.phase !== 'play') return;
+  clearTimers();
+  S.run.timedOut = timedOut;
+  S.results[S.run.mode] = { ...S.run };
+  try { localStorage.setItem('mission-results', JSON.stringify(S.results)); } catch (e) {}
+  S.lastMode = S.run.mode; S.phase = 'result'; render();
+}
+
+const ACT = {
+  start: b => start(b.dataset.mode),
+  home: () => { clearTimers(); S.phase = 'intro'; render(); },
+  closePop: () => { S.run.popup = false; render(); },
+  popTake: () => { Object.assign(S.run, { popTaken:true, popup:false, item:'legendPop', screen:'pay' }); render(); },
+  pick: b => { Object.assign(S.run, { item:b.dataset.id, screen:'pay' }); render(); },
+  back: () => { Object.assign(S.run, { item:null, screen:'shop' }); render(); },
+  pay: () => {
+    const r = S.run;
+    if (r.mode === 'hard') {
+      if (!['c-r1','c-req','c-r2'].every(id => $(id).checked)) { $('ph-err').hidden = false; return; }
+      r.sub = $('c-sub').checked; r.oneclick = $('c-one').checked;
+      r.paid += ITEMS[r.item].won; r.reachedPay = true;
+      r.screen = 'upsell'; r.sawUpsell = true; render();
+      let s = UPSELL;
+      upT = setInterval(() => { s--; const el = $('upc'); if (el) el.textContent = '00:0' + Math.max(s,0); if (s <= 0) finish(false); }, 1000);
+    } else {
+      r.sub = $('c-sub').checked; r.oneclick = false;
+      r.paid += ITEMS[r.item].won; r.reachedPay = true;
+      toast('비밀번호 확인 완료 · 결제했어요', 900);
+      setTimeout(() => finish(false), 900);
+    }
+  },
+  upgrade: () => {
+    const r = S.run; clearInterval(upT);
+    r.upgraded = true; r.paid += 2200;
+    toast(r.oneclick ? '비밀번호 없이 바로 결제됐어요 · 💎240' : '💎240 결제됐어요');
+    setTimeout(() => finish(false), 1300);
+  },
+  decline: () => finish(false),
+  friendOpen: () => { S.run.friendOpened = true; clearTimeout(notifHide); $('notif').innerHTML = friendChat(); },
+  friendSend: () => { S.run.friendSent = true; $('notif').innerHTML = ''; toast('민지에게 482913을 보냈어요'); },
+  notifClose: () => { $('notif').innerHTML = ''; },
+  ask: () => { $('askmsg').hidden = false; },
+  qr: () => {
+    const url = $('qr-url').value.trim().split('#')[0], box = $('qr');
+    box.innerHTML = '';
+    if (!/^https?:\/\//.test(url)) { box.textContent = 'https://로 시작하는 링크를 붙여 넣어 주세요.'; return; }
+    if (typeof QRCode === 'undefined') { box.textContent = 'QR 도구를 불러오지 못했어요. 새로고침 후 다시 눌러 주세요.'; return; }
+    [['1차 · 보통 화면', url], ['2차 · 쉬운 화면', url + '#easy']].forEach(([t, link]) => {
+      const fig = document.createElement('figure');
+      fig.innerHTML = `<figcaption>${t}</figcaption><div class="qrimg"></div><code>${link}</code>`;
+      box.appendChild(fig);
+      new QRCode(fig.querySelector('.qrimg'), { text:link, width:220, height:220, colorDark:'#000000', colorLight:'#ffffff' });
+    });
+  }
+};
+/* "전체 동의" ticks the optional items too, like real checkout pages */
+document.addEventListener('change', e => {
+  if (e.target.id === 'c-all')
+    ['c-r1','c-sub','c-req','c-one','c-r2'].forEach(id => { $(id).checked = e.target.checked; });
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (b && ACT[b.dataset.act]) ACT[b.dataset.act](b);
+});
+if (window.matchMedia('(min-width: 900px)').matches) $('side').open = true;
+try { Object.assign(S.results, JSON.parse(localStorage.getItem('mission-results')) || {}); } catch (e) {}
+window.addEventListener('hashchange', () => { clearTimers(); S.phase = 'intro'; render(); });
+render();
+</script>
+
+</body>
+</html>
